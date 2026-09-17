@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>100 Days Below - 심연의 100일 (프로토타입)</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- CRT 모니터 효과 레이어 -->
+    <div class="crt-overlay"></div>
+    <div class="crt-vignette"></div>
+
+    <!-- 상단 HUD 인터페이스 -->
+    <div id="hud-bar">
+      <div class="hud-group">
+        <div class="day-badge" id="hud-day-val">DAY 1</div>
+        <div class="hud-item">
+          <span>HP</span>
+          <div class="hud-bar-outer"><div id="hud-hp-fill" class="hud-bar-fill hp-fill" style="width: 100%;"></div></div>
+          <span id="hud-hp-text" style="font-size: 11px;">100/100</span>
+        </div>
+        <div class="hud-item">
+          <span>배터리</span>
+          <div class="hud-bar-outer"><div id="hud-battery-fill" class="hud-bar-fill battery-fill" style="width: 100%;"></div></div>
+          <span id="hud-battery-text" style="font-size: 11px;">100%</span>
+        </div>
+        <div class="hud-item">
+          <span>펄스</span>
+          <div class="hud-bar-outer"><div id="hud-pulse-fill" class="hud-bar-fill pulse-fill" style="width: 50%;"></div></div>
+          <span id="hud-pulse-text" style="font-size: 11px;">50/100</span>
+        </div>
+      </div>
+
+      <div class="hud-group">
+        <div class="hud-item">
+          <span>고철:</span>
+          <span id="hud-scrap-val" class="scrap-badge">200 G</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 현재 캐릭터 착용 장비 HUD (실시간 갱신) -->
+    <div id="equipped-gear-hud">
+      <div style="color: #6a9; font-size: 10px; border-bottom: 1px solid #234; padding-bottom: 2px; margin-bottom: 3px;">[장착된 장비]</div>
+      <div class="gear-row"><span class="gear-slot-tag">주무기:</span><span id="hud-gear-primary" class="gear-name-val">휴대용 채굴 드릴</span></div>
+      <div class="gear-row"><span class="gear-slot-tag">보조:</span><span id="hud-gear-sub" class="gear-name-val">고출력 투광등</span></div>
+      <div class="gear-row"><span class="gear-slot-tag">방어구:</span><span id="hud-gear-armor" class="gear-name-val">없음</span></div>
+      <div class="gear-row"><span class="gear-slot-tag">코어:</span><span id="hud-gear-core" class="gear-name-val">없음</span></div>
+    </div>
+
+    <!-- 100일차 보스 HP HUD -->
+    <div id="boss-hud">
+      <div class="boss-title"><span style="color:#d044ff; font-weight:bold;">[생명의 나무]</span> 심연의 지배자 - 베히모스</div>
+      <div class="boss-bar-outer">
+        <div id="boss-bar-fill" class="boss-bar-fill"></div>
+      </div>
+      <div id="boss-hp-text" style="font-size: 11px; color: #ff9999; margin-top: 3px;">2500 / 2500 HP</div>
+    </div>
+
+    <!-- 메인 캔버스 뷰포트 -->
+    <canvas id="gameCanvas" width="1024" height="720"></canvas>
+
+    <!-- 우측 세로 전투 카드 핸드 (핫키 1, 2, 3, 4) -->
+    <div id="deck-container">
+      <div class="combat-card" onclick="triggerCard(0)">
+        <div class="card-header-row">
+          <div class="card-cost">25</div>
+          <div class="card-name">급소 관통</div>
+          <div class="card-hotkey">[1]</div>
+        </div>
+        <div class="card-type">[ASSAULT]</div>
+        <div class="card-desc">마우스 방향 관통 충격파</div>
+      </div>
+      <div class="combat-card" onclick="triggerCard(1)">
+        <div class="card-header-row">
+          <div class="card-cost">35</div>
+          <div class="card-name">생체 방어막</div>
+          <div class="card-hotkey">[2]</div>
+        </div>
+        <div class="card-type">[SURVIVAL]</div>
+        <div class="card-desc">4초 무적 및 넉백 파동</div>
+      </div>
+      <div class="combat-card" onclick="triggerCard(2)">
+        <div class="card-header-row">
+          <div class="card-cost">40</div>
+          <div class="card-name">신경 마비 방전</div>
+          <div class="card-hotkey">[3]</div>
+        </div>
+        <div class="card-type">[TACTICS]</div>
+        <div class="card-desc">반경 내 모든 적 스턴</div>
+      </div>
+      <div class="combat-card" onclick="triggerCard(3)">
+        <div class="card-header-row">
+          <div class="card-cost">15</div>
+          <div class="card-name">살점 과부하</div>
+          <div class="card-hotkey">[4]</div>
+        </div>
+        <div class="card-type">[MUTATION]</div>
+        <div class="card-desc">HP 10 소모 전방위 촉수</div>
+      </div>
+    </div>
+
+    <!-- 화면 중앙 토스트 알림 -->
+    <div id="toast-notification">알림 메시지</div>
+
+    <!-- 디버그 & 일차 워프 패널 -->
+    <div id="debug-bar">
+      <span style="color: #6a9;">[WASD 이동 / 방향키 조준]</span>
+      <select id="warp-day-select">
+        <option value="1">Day 1 (상층 폐광)</option>
+        <option value="25">Day 25 (폐광 심층)</option>
+        <option value="26">Day 26 (생체 연구소)</option>
+        <option value="50">Day 50 (연구소 심층)</option>
+        <option value="51">Day 51 (기계 묘지)</option>
+        <option value="76">Day 76 (살점 동굴)</option>
+        <option value="100">Day 100 (거대 보스전)</option>
+      </select>
+      <button id="btn-warp">이동</button>
+      <button onclick="openDebugShop()">상점 열기 [B]</button>
+      <button id="btn-mute">소리 켬</button>
+      <button onclick="openCodex()">도감 [C]</button>
+    </div>
+
+    <div id="codex-modal" class="modal-overlay">
+      <div class="modal-box codex-box">
+        <div class="codex-title">심연 생태 도감 / 회수된 기록</div>
+        <div class="codex-tabs"><button data-codex-tab="entities" onclick="bestiarySystem.render('entities')">엔티티</button><button data-codex-tab="lore" onclick="bestiarySystem.render('lore')">세계관 기록</button></div>
+        <div id="codex-content"></div>
+        <div class="modal-actions"><button class="btn-action" onclick="closeCodex()">도감 닫기 [C]</button></div>
+      </div>
+    </div>
+
+    <!-- 고장난 상인 로봇 모달 (The Rusted Broker) -->
+    <div id="merchant-modal" class="modal-overlay">
+      <div class="modal-box">
+        <div class="robot-header">
+          <div class="robot-face-box">
+            <div class="robot-spark">⚡</div>
+            <div class="robot-eyes">[o_O]</div>
+            <div style="font-size: 10px; color: #33aa55;">BROKER-99</div>
+          </div>
+          <div class="robot-dialog">
+            <div class="robot-name">고장난 상인 로봇: '녹슨 브로커'</div>
+            <div id="robot-speech-text" class="robot-speech">치..치직... 안녕..하..십니까... 고객님?</div>
+          </div>
+        </div>
+
+        <div style="font-size: 12px; color: #33ff77; margin-bottom: 10px; font-weight: bold;">
+          🛒 장비 보급소 (구매 시 캐릭터에게 즉시 실시간 장착됩니다)
+        </div>
+
+        <div id="shop-items-grid" class="shop-grid">
+          <!-- JS로 동적 생성 -->
+        </div>
+
+        <div class="owned-title">보유 장비 보관함 · 장착 및 강화</div>
+        <div id="owned-items-grid" class="shop-grid"></div>
+
+        <div class="modal-actions">
+          <button id="btn-close-shop" class="btn-action">▼ 정비 완료 및 다음 날로 하강 ▼</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 게임 오버 모달 -->
+    <div id="gameover-modal" class="modal-overlay">
+      <div class="modal-box" style="text-align: center; border-color: #ff2233;">
+        <h2 style="color: #ff3344; font-size: 28px; margin-bottom: 15px;">생체 신호 정지 (DEAD)</h2>
+        <p style="color: #c99; font-size: 14px; margin-bottom: 12px;">
+          심연의 어둠 속에서 당신의 의식은 끊어졌습니다.<br>
+          <span style="color: #ffaa55;">사망으로 인해 소지했던 모든 장비가 초기화되었습니다.</span>
+        </p>
+        <div id="gameover-checkpoint-info" style="color: #33ffaa; font-size: 13px; margin-bottom: 15px; font-weight: bold;"></div>
+        <div id="gameover-actions" style="display: flex; flex-direction: column; gap: 8px;">
+          <button id="btn-restart-checkpoint" class="btn-action" style="border-color: #33ffaa; color: #33ffaa; display: none;">🚩 체크포인트에서 재시작</button>
+          <button id="btn-restart" class="btn-action" style="border-color: #ff3344;">🔄 Day 1부터 새로 시작</button>
+          <button id="btn-goto-title" class="btn-action" style="border-color: #6a9; color: #8cb896;">🏠 메인 메뉴로 이동</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 승리 모달 -->
+    <div id="victory-modal" class="modal-overlay">
+      <div class="modal-box" style="text-align: center; border-color: #33eeff;">
+        <h2 style="color: #33eeff; font-size: 30px; margin-bottom: 15px;">100일 생존 완료 - 심연의 해방</h2>
+        <p style="color: #aee; font-size: 14px; margin-bottom: 25px;">
+          당신은 100층 최하층의 거대 심연체를 파괴하고 살아남았습니다!<br>
+          심연의 100일간의 모든 데이터를 회수했습니다.
+        </p>
+        <button id="btn-restart-win" class="btn-action" style="border-color: #33eeff;">새로운 회차 시작</button>
+      </div>
+    </div>
+
+    <!-- 음산한 메인 타이틀 화면 -->
+    <div id="title-screen" class="title-overlay active">
+      <div class="title-bg-fog"></div>
+      <div class="title-warning-beacon"></div>
+      <div class="title-content">
+        <div class="title-sub-badge">심연 폐쇄 시설 비상 프로토콜</div>
+        <h1 class="title-main-logo">
+          <span class="logo-days">100 DAYS</span>
+          <span class="logo-below">BELOW</span>
+        </h1>
+        <div class="title-kor-name">프로젝트 '굴' : 심연의 100일</div>
+        <p class="title-desc">
+          지하 100층 심연의 폐쇄 연구소. 생체 변이체들의 소굴을 돌파하고 살아남으십시오.
+        </p>
+
+        <div class="title-menu-group">
+          <button id="btn-start-game" class="btn-title-action btn-start-primary">
+            <span class="btn-icon">⚡</span> 게임 시작 (OPERATION START)
+          </button>
+          <button id="btn-open-codex-title" class="btn-title-action">
+            <span class="btn-icon">📖</span> 심연 생태 도감 (CODEX)
+          </button>
+          <button id="btn-mute-title" class="btn-title-action">
+            <span class="btn-icon">🔊</span> 소리 켬
+          </button>
+        </div>
+
+        <div class="title-footer-tips">
+          <span>[조작법] WASD 이동 | 방향키 조준 및 마우스 좌클릭 사격 | 1~4번 전투 카드 | B 상점 | C 도감</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 작전 구역 모드 선택 화면 -->
+    <div id="mode-select-screen" class="modal-overlay">
+      <div class="modal-box mode-select-box">
+        <div class="mode-select-header">
+          <h2 class="mode-select-title">작전 구역 선택 (OPERATION SELECT)</h2>
+          <p class="mode-select-subtitle">진입할 심연 탐사 모드를 선택하십시오.</p>
+        </div>
+
+        <div class="mode-cards-container">
+          <!-- 모드 1: 굴속으로 (클래식 모드) -->
+          <div id="mode-card-classic" class="mode-card mode-card-active">
+            <div class="mode-badge active-badge">탐사 가능 · ACTIVE</div>
+            <div class="mode-icon-box">🕳️</div>
+            <h3 class="mode-title">1. 굴속으로</h3>
+            <div class="mode-eng-title">INTO THE CAVE (CLASSIC)</div>
+            <p class="mode-description">
+              우리가 지금까지 작업한 정통 클래식 모드입니다.<br>
+              지하 100층 최하층을 향해 한 층씩 적을 소탕하며 내려갑니다. 10일마다 안전 기지(체크포인트)가 등록됩니다.
+            </p>
+            <div class="mode-tags">
+              <span>#클래식모드</span>
+              <span>#100층하강</span>
+              <span>#10일체크포인트</span>
+              <span>#모듈시장착</span>
+            </div>
+            <button id="btn-select-classic" class="btn-mode-enter">
+              ⬇️ 굴속으로 진입 ⬇️
+            </button>
+          </div>
+
+          <!-- 모드 2: 잠김 (차후 업데이트 예정) -->
+          <div id="mode-card-locked-1" class="mode-card mode-card-locked">
+            <div class="lock-chains-overlay">
+              <div class="chain-bar chain-top"></div>
+              <div class="chain-bar chain-bottom"></div>
+              <div class="padlock-wrapper">
+                <div class="padlock-icon">🔒</div>
+                <div class="lock-text">LOCKED</div>
+              </div>
+            </div>
+            <div class="hazard-stripe-bar">CAUTION: RESTRICTED ACCESS</div>
+            <div class="mode-badge locked-badge">접근 불가 · 봉인됨</div>
+            <div class="mode-icon-box locked-icon">☣️</div>
+            <h3 class="mode-title">2. 오염된 격리동</h3>
+            <div class="mode-eng-title">CONTAMINATED SECTOR</div>
+            <p class="mode-description">
+              치명적인 방사능과 변이 가스가 유출된 고위험 연구 구역입니다.<br>
+              보안 잠금장치가 견고하게 잠겨 있습니다.
+            </p>
+            <div class="mode-tags">
+              <span>#잠김</span>
+              <span>#보안인가필요</span>
+              <span>#업데이트예정</span>
+            </div>
+            <div class="locked-status-label">
+              🔒 업데이트 예정 (SEALED)
+            </div>
+          </div>
+
+          <!-- 모드 3: 잠김 (차후 업데이트 예정) -->
+          <div id="mode-card-locked-2" class="mode-card mode-card-locked">
+            <div class="lock-chains-overlay">
+              <div class="chain-bar chain-top"></div>
+              <div class="chain-bar chain-bottom"></div>
+              <div class="padlock-wrapper">
+                <div class="padlock-icon">🔒</div>
+                <div class="lock-text">LOCKED</div>
+              </div>
+            </div>
+            <div class="hazard-stripe-bar" style="background: repeating-linear-gradient(45deg, #ff2233, #ff2233 10px, #1a0004 10px, #1a0004 20px);">EXTREME DANGER: SEALED</div>
+            <div class="mode-badge locked-badge" style="color: #ff3344; border-color: #ff3344;">진입로 차단 · 봉인됨</div>
+            <div class="mode-icon-box locked-icon">💀</div>
+            <h3 class="mode-title">3. 끝없는 시련</h3>
+            <div class="mode-eng-title">ENDLESS TRIAL</div>
+            <p class="mode-description">
+              출구가 존재하지 않는 심연의 무한 생존 모드입니다.<br>
+              고전압 차단벽으로 봉쇄되어 있습니다.
+            </p>
+            <div class="mode-tags">
+              <span>#잠김</span>
+              <span>#무한웨이브</span>
+              <span>#업데이트예정</span>
+            </div>
+            <div class="locked-status-label" style="border-color: #ff3344; color: #ff6677;">
+              🔒 업데이트 예정 (SEALED)
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 15px;">
+          <button id="btn-back-to-title" class="btn-action" style="border-color: #446655; color: #8cb896;">◀ 메인 화면으로 돌아가기</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 스크립트 로드 순서 -->
+  <script src="js/audio.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/merchant.js"></script>
+  <script src="js/stages.js"></script>
+  <script src="js/boss.js"></script>
+  <script src="js/bestiary.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
